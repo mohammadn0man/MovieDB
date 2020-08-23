@@ -1,9 +1,7 @@
 package com.example.moviedb;
 
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.preference.PreferenceManager;
 import android.util.Log;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -13,14 +11,16 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.moviedb.adapter.ReviewAdapter;
 import com.example.moviedb.adapter.TrailerAdapter;
 import com.example.moviedb.api.Client;
 import com.example.moviedb.api.Service;
 import com.example.moviedb.models.Movie;
+import com.example.moviedb.models.Review;
+import com.example.moviedb.models.ReviewResponse;
 import com.example.moviedb.models.Trailer;
 import com.example.moviedb.models.TrailerResponse;
 import com.github.ivbaranov.mfb.MaterialFavoriteButton;
-import com.google.android.material.snackbar.Snackbar;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -38,10 +38,12 @@ import retrofit2.Response;
 
 public class DetailActivity extends AppCompatActivity {
     TextView nameOfMovie, plotSynopsis, userRating, releaseDate;
-    private RecyclerView recyclerView;
+    private RecyclerView recyclerView1;
+    private RecyclerView recyclerView2;
     private TrailerAdapter adapter;
+    private ReviewAdapter reviewAdapter;
     private List<Trailer> trailerList;
-    private Movie favorite;
+    private List<Review> reviewList;
     DatabaseReference reference;
 
     Movie movie;
@@ -120,11 +122,19 @@ public class DetailActivity extends AppCompatActivity {
     private void initViews(){
         trailerList = new ArrayList<>();
         adapter = new TrailerAdapter(this, trailerList);
+        reviewList = new ArrayList<>();
+        reviewAdapter = new ReviewAdapter(this, reviewList);
 
-        recyclerView = (RecyclerView) findViewById(R.id.recycler_view1);
-        recyclerView.setHasFixedSize(true);
-        recyclerView.setLayoutManager(new LinearLayoutManager(getApplicationContext(), LinearLayoutManager.HORIZONTAL, false));
-        recyclerView.setAdapter(adapter);
+        recyclerView1 = (RecyclerView) findViewById(R.id.recycler_view1);
+        recyclerView1.setHasFixedSize(true);
+        recyclerView1.setLayoutManager(new LinearLayoutManager(getApplicationContext(), LinearLayoutManager.HORIZONTAL, false));
+        recyclerView1.setAdapter(adapter);
+        adapter.notifyDataSetChanged();
+
+        recyclerView2 = (RecyclerView) findViewById(R.id.recycler_view2);
+        recyclerView2.setHasFixedSize(true);
+        recyclerView2.setLayoutManager(new LinearLayoutManager(getApplicationContext(), LinearLayoutManager.HORIZONTAL, false));
+        recyclerView2.setAdapter(reviewAdapter);
         adapter.notifyDataSetChanged();
 
         loadJSON();
@@ -141,8 +151,8 @@ public class DetailActivity extends AppCompatActivity {
                 @Override
                 public void onResponse(Call<TrailerResponse> call, Response<TrailerResponse> response) {
                     List<Trailer> trailer = response.body().getResults();
-                    recyclerView.setAdapter(new TrailerAdapter(getApplicationContext(), trailer));
-                    recyclerView.smoothScrollToPosition(0);
+                    recyclerView1.setAdapter(new TrailerAdapter(getApplicationContext(), trailer));
+                    recyclerView1.smoothScrollToPosition(0);
                 }
 
                 @Override
@@ -157,6 +167,37 @@ public class DetailActivity extends AppCompatActivity {
             Log.d("Error", e.getMessage());
             Toast.makeText(this, e.toString(), Toast.LENGTH_SHORT).show();
         }
+
+        try{
+            Client Client = new Client();
+            Service apiService = Client.getClient().create(Service.class);
+            Call<ReviewResponse> call = apiService.getReviews(movie_id, getString(R.string.THE_MOVIE_DB_API_TOKEN));
+            call.enqueue(new Callback<ReviewResponse>() {
+                @Override
+                public void onResponse(Call<ReviewResponse> call, Response<ReviewResponse> response) {
+                    List<Review> reviews = response.body().getResults();
+
+                    for (Review r : reviews){
+                        Log.e("Review Response", r.getAuthor() +"\n"+r.getContent());
+                    }
+
+                    recyclerView2.setAdapter(new ReviewAdapter(getApplicationContext(), reviews));
+                    recyclerView2.smoothScrollToPosition(0);
+                }
+
+                @Override
+                public void onFailure(Call<ReviewResponse> call, Throwable t) {
+                    Log.d("Error", t.getMessage());
+                    Toast.makeText(DetailActivity.this, "Error fetching trailer data", Toast.LENGTH_SHORT).show();
+
+                }
+            });
+
+        }catch (Exception e){
+            Log.d("Error", e.getMessage());
+            Toast.makeText(this, e.toString(), Toast.LENGTH_SHORT).show();
+        }
+
     }
 
 }
